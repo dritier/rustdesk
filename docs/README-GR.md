@@ -9,7 +9,7 @@
   <b>Χρειαζόμαστε τη βοήθειά σας για να μεταφράσουμε αυτό το αρχείο README, το <a href="https://github.com/rustdesk/rustdesk/tree/master/src/lang">RustDesk UI</a> και το <a href="https://github.com/rustdesk/doc.rustdesk.com">Doc</a> στη μητρική σας γλώσσα</b>
 </p>
 
-Επικοινωνήστε μαζί μας μέσω: [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk)
+Επικοινωνήστε μαζί μας μέσω: [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk) | [YouTube](https://www.youtube.com/@rustdesk)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/I2I04VU09)
 
@@ -17,7 +17,7 @@
 
 ![image](https://user-images.githubusercontent.com/71636191/171661982-430285f0-2e12-4b1d-9957-4a58e375304d.png)
 
-Το RustDesk ενθαρρύνει τη συνεισφορά όλων. Διαβάστε το [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) για βοήθεια στο πως να ξεκινήσετε.
+Το RustDesk ενθαρρύνει τη συνεισφορά όλων. Διαβάστε το [`docs/CONTRIBUTING.md`](CONTRIBUTING.md) για βοήθεια στο πως να ξεκινήσετε.
 
 [**Συχνές ερωτήσεις**](https://github.com/rustdesk/rustdesk/wiki/FAQ)
 

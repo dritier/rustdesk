@@ -10,6 +10,7 @@ use hbb_common::{
     libc::{c_char, c_int, c_long, c_void},
     log,
     message_proto::{DisplayInfo, Resolution},
+    platform::linux::{CMD_PS, CMD_SH},
     regex::{Captures, Regex},
 };
 use std::{
@@ -320,7 +321,7 @@ fn set_x11_env(desktop: &Desktop) {
 #[inline]
 fn stop_rustdesk_servers() {
     let _ = run_cmds(&format!(
-        r##"ps -ef | grep -E '{} +--server' | awk '{{printf("kill -9 %d\n", $2)}}' | bash"##,
+        r##"ps -ef | grep -E '{} +--server' | awk '{{print $2}}' | xargs -r kill -9"##,
         crate::get_app_name().to_lowercase(),
     ));
 }
@@ -328,11 +329,11 @@ fn stop_rustdesk_servers() {
 #[inline]
 fn stop_subprocess() {
     let _ = run_cmds(&format!(
-        r##"ps -ef | grep '/etc/{}/xorg.conf' | grep -v grep | awk '{{printf("kill -9 %d\n", $2)}}' | bash"##,
+        r##"ps -ef | grep '/etc/{}/xorg.conf' | grep -v grep | awk '{{print $2}}' | xargs -r kill -9"##,
         crate::get_app_name().to_lowercase(),
     ));
     let _ = run_cmds(&format!(
-        r##"ps -ef | grep -E '{} +--cm-no-ui' | grep -v grep | awk '{{printf("kill -9 %d\n", $2)}}' | bash"##,
+        r##"ps -ef | grep -E '{} +--cm-no-ui' | grep -v grep | awk '{{print $2}}' | xargs -r kill -9"##,
         crate::get_app_name().to_lowercase(),
     ));
 }
@@ -369,6 +370,12 @@ fn should_start_server(
         && ((*cm0 && last_restart.elapsed().as_secs() > 60)
             || last_restart.elapsed().as_secs() > 3600)
     {
+        let terminal_session_count = crate::ipc::get_terminal_session_count().unwrap_or(0);
+        if terminal_session_count > 0 {
+            // There are terminal sessions, so we don't restart the server.
+            // We also need to keep `cm0` unchanged, so that we can reach this branch the next time.
+            return false;
+        }
         // restart server if new connections all closed, or every one hour,
         // as a workaround to resolve "SpotUdp" (dns resolve)
         // and x server get displays failure issue
@@ -517,7 +524,8 @@ pub fn get_active_userid() -> String {
 }
 
 fn get_cm() -> bool {
-    if let Ok(output) = Command::new("ps").args(vec!["aux"]).output() {
+    // We use `CMD_PS` instead of `ps` to suppress some audit messages on some systems.
+    if let Ok(output) = Command::new(CMD_PS.as_str()).args(vec!["aux"]).output() {
         for line in String::from_utf8_lossy(&output.stdout).lines() {
             if line.contains(&format!(
                 "{} --cm",
@@ -619,8 +627,11 @@ pub fn is_prelogin() -> bool {
     if is_flatpak() {
         return false;
     }
-    let n = get_active_userid().len();
-    n < 4 && n > 1
+    let name = get_active_username();
+    if let Ok(res) = run_cmds(&format!("getent passwd {}", name)) {
+        return res.contains("/bin/false") || res.contains("/usr/sbin/nologin");
+    }
+    false
 }
 
 // Check "Lock".
@@ -1016,7 +1027,7 @@ mod desktop {
         pub sid: String,
         pub username: String,
         pub uid: String,
-        pub protocal: String,
+        pub protocol: String,
         pub display: String,
         pub xauth: String,
         pub home: String,
@@ -1027,12 +1038,12 @@ mod desktop {
     impl Desktop {
         #[inline]
         pub fn is_wayland(&self) -> bool {
-            self.protocal == DISPLAY_SERVER_WAYLAND
+            self.protocol == DISPLAY_SERVER_WAYLAND
         }
 
         #[inline]
         pub fn is_login_wayland(&self) -> bool {
-            super::is_gdm_user(&self.username) && self.protocal == DISPLAY_SERVER_WAYLAND
+            super::is_gdm_user(&self.username) && self.protocol == DISPLAY_SERVER_WAYLAND
         }
 
         #[inline]
@@ -1042,7 +1053,7 @@ mod desktop {
 
         fn get_display_xauth_xwayland(&mut self) {
             let tray = format!("{} +--tray", crate::get_app_name().to_lowercase());
-            for _ in 0..5 {
+            for _ in 1..=10 {
                 let display_proc = vec![
                     XWAYLAND,
                     IBUS_DAEMON,
@@ -1055,7 +1066,7 @@ mod desktop {
                     self.xauth = get_env("XAUTHORITY", &self.uid, proc);
                     self.wl_display = get_env("WAYLAND_DISPLAY", &self.uid, proc);
                     if !self.display.is_empty() && !self.xauth.is_empty() {
-                        break;
+                        return;
                     }
                 }
                 sleep_millis(300);
@@ -1063,7 +1074,7 @@ mod desktop {
         }
 
         fn get_display_x11(&mut self) {
-            for _ in 0..10 {
+            for _ in 1..=10 {
                 let display_proc = vec![
                     XWAYLAND,
                     IBUS_DAEMON,
@@ -1077,6 +1088,9 @@ mod desktop {
                     if !self.display.is_empty() {
                         break;
                     }
+                }
+                if !self.display.is_empty() {
+                    break;
                 }
                 sleep_millis(300);
             }
@@ -1147,7 +1161,7 @@ mod desktop {
         fn get_xauth_x11(&mut self) {
             // try by direct access to window manager process by name
             let tray = format!("{} +--tray", crate::get_app_name().to_lowercase());
-            for _ in 0..10 {
+            for _ in 1..=10 {
                 let display_proc = vec![
                     XWAYLAND,
                     IBUS_DAEMON,
@@ -1162,6 +1176,9 @@ mod desktop {
                     if !self.xauth.is_empty() {
                         break;
                     }
+                }
+                if !self.xauth.is_empty() {
+                    break;
                 }
                 sleep_millis(300);
             }
@@ -1271,7 +1288,7 @@ mod desktop {
             self.sid = seat0_values[0].clone();
             self.uid = seat0_values[1].clone();
             self.username = seat0_values[2].clone();
-            self.protocal = get_display_server_of_session(&self.sid).into();
+            self.protocol = get_display_server_of_session(&self.sid).into();
             if self.is_login_wayland() {
                 self.display = "".to_owned();
                 self.xauth = "".to_owned();
@@ -1352,7 +1369,8 @@ pub fn run_me_with(secs: u32) {
         .unwrap_or("".into())
         .to_string_lossy()
         .to_string();
-    std::process::Command::new("sh")
+    // We use `CMD_SH` instead of `sh` to suppress some audit messages on some systems.
+    std::process::Command::new(CMD_SH.as_str())
         .arg("-c")
         .arg(&format!("sleep {secs}; {exe}"))
         .spawn()

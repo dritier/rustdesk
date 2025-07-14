@@ -81,6 +81,7 @@ class RustdeskImpl {
       required bool isViewCamera,
       required bool isPortForward,
       required bool isRdp,
+      required bool isTerminal,
       required String switchUuid,
       required bool forceRelay,
       required String password,
@@ -94,7 +95,8 @@ class RustdeskImpl {
         'password': password,
         'is_shared_password': isSharedPassword,
         'isFileTransfer': isFileTransfer,
-        'isViewCamera': isViewCamera
+        'isViewCamera': isViewCamera,
+        'isTerminal': isTerminal
       })
     ]);
   }
@@ -1530,15 +1532,20 @@ class RustdeskImpl {
 
   Future<void> mainAccountAuth(
       {required String op, required bool rememberMe, dynamic hint}) {
-    throw UnimplementedError("mainAccountAuth");
+    return Future(() => js.context.callMethod('setByName', [
+          'account_auth',
+          jsonEncode({'op': op, 'remember': rememberMe})
+        ]));
   }
 
   Future<void> mainAccountAuthCancel({dynamic hint}) {
-    throw UnimplementedError("mainAccountAuthCancel");
+    return Future(
+        () => js.context.callMethod('setByName', ['account_auth_cancel']));
   }
 
   Future<String> mainAccountAuthResult({dynamic hint}) {
-    throw UnimplementedError("mainAccountAuthResult");
+    return Future(
+        () => js.context.callMethod('getByName', ['account_auth_result']));
   }
 
   Future<void> mainOnMainWindowClose({dynamic hint}) {
@@ -1904,6 +1911,64 @@ class RustdeskImpl {
   Future<void> sessionTakeScreenshot(
       {required UuidValue sessionId, required int display, dynamic hint}) {
     throw UnimplementedError("sessionTakeScreenshot");
+  }
+
+  Future<void> sessionOpenTerminal(
+      {required UuidValue sessionId,
+      required int terminalId,
+      required int rows,
+      required int cols,
+      dynamic hint}) {
+    return Future(() => js.context.callMethod('setByName', [
+          'open_terminal',
+          jsonEncode({
+            'terminal_id': terminalId,
+            'rows': rows,
+            'cols': cols,
+          })
+        ]));
+  }
+
+  Future<void> sessionSendTerminalInput(
+      {required UuidValue sessionId,
+      required int terminalId,
+      required String data,
+      dynamic hint}) {
+    return Future(() => js.context.callMethod('setByName', [
+          'send_terminal_input',
+          jsonEncode({
+            'terminal_id': terminalId,
+            'data': data,
+          })
+        ]));
+  }
+
+  Future<void> sessionResizeTerminal(
+      {required UuidValue sessionId,
+      required int terminalId,
+      required int rows,
+      required int cols,
+      dynamic hint}) {
+    return Future(() => js.context.callMethod('setByName', [
+          'resize_terminal',
+          jsonEncode({
+            'terminal_id': terminalId,
+            'rows': rows,
+            'cols': cols,
+          })
+        ]));
+  }
+
+  Future<void> sessionCloseTerminal(
+      {required UuidValue sessionId,
+      required int terminalId,
+      dynamic hint}) {
+    return Future(() => js.context.callMethod('setByName', [
+          'close_terminal',
+          jsonEncode({
+            'terminal_id': terminalId,
+          })
+        ]));
   }
 
   void dispose() {}

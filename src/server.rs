@@ -33,6 +33,8 @@ use video_service::VideoSource;
 use crate::ipc::Data;
 
 pub mod audio_service;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub mod terminal_service;
 cfg_if::cfg_if! {
 if #[cfg(not(target_os = "ios"))] {
 mod clipboard_service;
@@ -146,6 +148,7 @@ pub fn new() -> ServerPtr {
             }
         }
     }
+    // Terminal service is created per connection, not globally
     Arc::new(RwLock::new(server))
 }
 
@@ -246,7 +249,7 @@ pub async fn accept_connection(
     secure: bool,
 ) {
     if let Err(err) = accept_connection_(server, socket, secure).await {
-        log::error!("Failed to accept connection from {}: {}", peer_addr, err);
+        log::warn!("Failed to accept connection from {}: {}", peer_addr, err);
     }
 }
 
@@ -567,8 +570,6 @@ pub async fn start_server(is_server: bool, no_server: bool) {
         crate::platform::try_kill_broker();
         #[cfg(feature = "hwcodec")]
         scrap::hwcodec::start_check_process();
-        #[cfg(target_os = "windows")]
-        crate::platform::check_update_printer_option();
         crate::RendezvousMediator::start_all().await;
     } else {
         match crate::ipc::connect(1000, "").await {
